@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "Aplicativo desktop para controle de maquina de imersao baseada em impressora 3D.",
   "main": "dist-electron/main.js",
-  "author": "Codex",
+  "author": {
+    "name": "Matheus Barbosa",
+    "email": "mateusbosa21@gmail.com"
+  },
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -69,6 +72,7 @@
         "deb"
       ],
       "category": "Utility",
+      "maintainer": "Matheus Barbosa <mateusbosa21@gmail.com>",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
