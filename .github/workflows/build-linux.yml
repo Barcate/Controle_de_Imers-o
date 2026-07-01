@@ -39,9 +39,10 @@ jobs:
             libtiff-dev \
             libnotify-dev \
             libsdl2-dev \
-            freeglut3-dev \
-            libgstreamer1.0-dev \
-            libgstreamer-plugins-base1.0-dev
+            freeglut3-dev
+
+          echo "Testando dbus-1:"
+          pkg-config --modversion dbus-1
 
       - name: Install Node dependencies
         run: npm install
