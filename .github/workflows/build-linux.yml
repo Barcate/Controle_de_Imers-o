@@ -12,22 +12,36 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Install Linux build packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2
+          sudo apt-get install -y \
+            libfuse2 \
+            build-essential \
+            pkg-config \
+            python3-dev \
+            libdbus-1-dev \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libjpeg-dev \
+            libtiff-dev \
+            libnotify-dev \
+            libsdl2-dev \
+            freeglut3-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev
 
       - name: Install Node dependencies
         run: npm install
@@ -41,7 +55,7 @@ jobs:
         run: npm run dist:linux
 
       - name: Upload Linux installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: controle-de-imersao-linux
           path: |
