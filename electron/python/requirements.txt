@@ -1,0 +1,2 @@
+Printrun>=2.1.0
+pyserial>=3.5

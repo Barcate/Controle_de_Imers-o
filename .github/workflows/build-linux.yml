@@ -1,0 +1,49 @@
+name: Build Linux installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linux build packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Build bundled printcore bridge
+        run: |
+          npm run build:bridge:linux
+          chmod +x electron/python/bin/printcore_bridge
+
+      - name: Build Linux AppImage and deb
+        run: npm run dist:linux
+
+      - name: Upload Linux installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: controle-de-imersao-linux
+          path: |
+            release/*.AppImage
+            release/*.deb
