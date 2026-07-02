@@ -84,6 +84,15 @@ sudo usermod -aG dialout $USER
 
 Depois disso, saia e entre de novo na sessao do sistema.
 
+### Nao usar o `.exe` do Windows no Linux
+
+Se o cliente estiver em Linux, nao envie o instalador `.exe` do Windows para abrir via Wine. Electron/Chromium pode travar no Wine com erro `int3` ou tela preta.
+
+Para Linux, envie um destes arquivos gerados pelo build Linux:
+
+- `.AppImage`
+- `.deb`
+
 ## Rotina do G-code
 
 O gerador usa tres niveis de repeticao:
