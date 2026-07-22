@@ -4,18 +4,32 @@ import threading
 import time
 import traceback
 
+printcore = None
+gcoder = None
+printrun_import_error = None
+
 try:
-    from printrun.printcore import printcore
-    from printrun import gcoder
     from serial.tools import list_ports
 except Exception as exc:
     print(json.dumps({
         "type": "ready",
         "ok": False,
-        "error": f"Falha ao importar Printrun/pyserial: {exc}"
+        "error": f"Falha ao importar pyserial: {exc}"
     }), flush=True)
 else:
+    try:
+        from printrun.printcore import printcore
+        from printrun import gcoder
+    except Exception as exc:
+        printrun_import_error = exc
+
     print(json.dumps({"type": "ready", "ok": True}), flush=True)
+    if printrun_import_error is not None:
+        print(json.dumps({
+            "type": "log",
+            "level": "error",
+            "message": f"Printrun nao instalado: {printrun_import_error}"
+        }), flush=True)
 
 
 printer = None
@@ -31,8 +45,8 @@ def emit_log(level, message):
 
 
 def require_printrun():
-    if "printcore" not in globals() or "gcoder" not in globals():
-        raise RuntimeError("Printrun nao esta disponivel. Instale com: py -m pip install Printrun")
+    if printcore is None or gcoder is None:
+        raise RuntimeError("Printrun nao esta disponivel. Instale com: py -3 -m pip install -r electron/python/requirements.txt")
 
 
 def wait_online(timeout_seconds=20):
@@ -43,7 +57,10 @@ def wait_online(timeout_seconds=20):
         if current is not None and getattr(current, "online", False):
             return
         time.sleep(0.1)
-    raise TimeoutError("Tempo esgotado aguardando a maquina ficar online.")
+    raise TimeoutError(
+        "A porta serial abriu, mas a maquina nao respondeu ao printcore. "
+        "Tente resetar/religar a placa, trocar o baud rate ou confirmar se o firmware aceita G-code/Marlin."
+    )
 
 
 def attach_callbacks(current):
@@ -52,8 +69,10 @@ def attach_callbacks(current):
         if text:
             emit_log("received", text)
 
-    def sent(line):
-        text = str(line).strip()
+    def sent(command, _gline=None):
+        text = str(command).strip()
+        if text == "M105":
+            return
         if text:
             emit_log("sent", text)
 
@@ -70,6 +89,7 @@ def handle_list_ports(request_id):
     for port in list_ports.comports():
         ports.append({
             "path": port.device,
+            "description": port.description,
             "manufacturer": port.manufacturer,
             "serialNumber": port.serial_number,
             "vendorId": f"{port.vid:04X}" if port.vid is not None else None,
@@ -86,7 +106,15 @@ def handle_connect(request_id, path, baud_rate):
     attach_callbacks(current)
     with printer_lock:
         printer = current
-    wait_online()
+    emit_log("info", f"Porta {path} aberta. Aguardando resposta da maquina...")
+    try:
+        wait_online()
+    except Exception:
+        with printer_lock:
+            if printer is current:
+                printer = None
+        current.disconnect()
+        raise
     emit_log("info", f"Conectado em {path} com printcore.")
     emit("response", id=request_id, ok=True)
 

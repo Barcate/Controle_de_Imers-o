@@ -23,11 +23,14 @@ export function generateGCode(config: MachineConfig): string {
     "; Arquivo gerado pelo Controle de Imersao",
     "; ===== INICIO DA ROTINA =====",
     "G21 ; unidades em milimetros",
-    "G90 ; coordenadas absolutas",
-    "G28 ; home",
-    `G1 Z${formatNumber(config.safeZ)} F${initialUpFeedRate}`,
-    "M400"
+    "G90 ; coordenadas absolutas"
   ];
+
+  if (config.homeBeforeRoutine) {
+    lines.push("G28 ; home");
+  }
+
+  lines.push(`G1 Z${formatNumber(config.safeZ)} F${initialUpFeedRate}`, "M400");
 
   for (let routineIndex = 1; routineIndex <= config.routineRepetitions; routineIndex += 1) {
     lines.push(`; ===== ROTINA ${routineIndex} DE ${config.routineRepetitions} =====`);

@@ -21,5 +21,13 @@ assert.equal((gcode.match(/G1 X40 Y20 F2000/g) ?? []).length, 2);
 assert.equal((gcode.match(/; Velocidades\/tempos do ponto: descida 2.5 mm\/s, embaixo 2s, subida 5 mm\/s, em cima 1s/g) ?? []).length, 2);
 assert.equal((gcode.match(/G1 Z5 F150/g) ?? []).length, 6);
 assert.equal((gcode.match(/G4 P2000/g) ?? []).length, 6);
+assert.equal(gcode.includes("G28 ; home"), false);
+
+const gcodeWithHome = generateGCode({
+  ...defaultConfig,
+  homeBeforeRoutine: true
+});
+
+assert.match(gcodeWithHome, /G90 ; coordenadas absolutas\nG28 ; home\nG1 Z30 F300/);
 
 console.log("generateGCode: rotina completa e repeticoes por ponto conferidas.");

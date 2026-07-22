@@ -5,6 +5,7 @@ export const defaultConfig: MachineConfig = {
   downZ: 5,
   xyFeedRate: 2000,
   routineRepetitions: 1,
+  homeBeforeRoutine: false,
   baudRate: 115200,
   points: [
     { id: "point-1", name: "Ponto 1", x: 10, y: 20, repetitions: 1, downSpeedMmPerSecond: 5, holdDownSeconds: 10, upSpeedMmPerSecond: 5, holdUpSeconds: 5 },

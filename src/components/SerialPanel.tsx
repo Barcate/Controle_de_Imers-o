@@ -45,7 +45,7 @@ export function SerialPanel({
           <option value="">Selecione</option>
           {ports.map((port) => (
             <option key={port.path} value={port.path}>
-              {port.path} {port.manufacturer ? `- ${port.manufacturer}` : ""}
+              {port.path} {port.description || port.manufacturer ? `- ${port.description || port.manufacturer}` : ""}
             </option>
           ))}
         </SelectField>

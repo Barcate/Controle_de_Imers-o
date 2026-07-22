@@ -17,12 +17,14 @@ export type MachineConfig = {
   downZ: number;
   xyFeedRate: number;
   routineRepetitions: number;
+  homeBeforeRoutine: boolean;
   baudRate: BaudRate;
   points: MachinePoint[];
 };
 
 export type SerialPortInfo = {
   path: string;
+  description?: string;
   manufacturer?: string;
   serialNumber?: string;
   vendorId?: string;

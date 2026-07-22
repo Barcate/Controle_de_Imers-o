@@ -1,6 +1,6 @@
-import { Activity, Cpu, Download, FileCode2, Gauge, MapPin, Repeat2, ShieldCheck, Signal, TimerReset } from "lucide-react";
+import { Activity, Cpu, Download, FileCode2, Gauge, MapPin, Repeat2, ShieldCheck, Signal, Terminal, X, TimerReset } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Field } from "./components/Field";
+import { Field, ToggleField } from "./components/Field";
 import { GCodePreview } from "./components/GCodePreview";
 import { LogPanel } from "./components/LogPanel";
 import { PointsTable } from "./components/PointsTable";
@@ -29,6 +29,7 @@ function App() {
   const [selectedPort, setSelectedPort] = useState("");
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState<SerialLogEntry[]>([]);
+  const [isLogOpen, setIsLogOpen] = useState(false);
   const errors = useMemo(() => validateConfig(config), [config]);
   const totalPointCycles = useMemo(
     () => config.points.reduce((total, point) => total + point.repetitions, 0) * config.routineRepetitions,
@@ -48,6 +49,17 @@ function App() {
 
     return () => unsubscribe?.();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isLogOpen) {
+        setIsLogOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isLogOpen]);
 
   const updateConfig = (patch: Partial<MachineConfig>) => {
     setConfig((current) => ({ ...current, ...patch }));
@@ -170,6 +182,15 @@ function App() {
             </div>
           </div>
           <div className="hidden items-center gap-2 sm:flex">
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setIsLogOpen(true)}
+              title="Abrir log"
+              aria-label="Abrir log"
+            >
+              <Terminal size={17} />
+            </button>
             <span className={`status-pill ${connected ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 bg-white/[0.035] text-zinc-400"}`}>
               <span className={`status-dot ${connected ? "bg-emerald-300" : "bg-zinc-600"}`} />
               {connected ? "Online" : "Offline"}
@@ -264,6 +285,7 @@ function App() {
                 <Field label="Altura de descida Z (mm)" type="number" value={config.downZ} onChange={(event) => updateConfig({ downZ: numberValue(event.target.value) })} />
                 <Field label="Repeticoes da rotina completa" min={1} step={1} type="number" value={config.routineRepetitions} onChange={(event) => updateConfig({ routineRepetitions: numberValue(event.target.value) })} />
                 <Field label="Velocidade X/Y" type="number" value={config.xyFeedRate} onChange={(event) => updateConfig({ xyFeedRate: numberValue(event.target.value) })} />
+                <ToggleField label="Fazer home antes da rotina" hint="G28" checked={config.homeBeforeRoutine} onChange={(event) => updateConfig({ homeBeforeRoutine: event.target.checked })} />
               </div>
 
               {errors.length > 0 ? (
@@ -319,13 +341,41 @@ function App() {
               </div>
               <GCodePreview gcode={gcode} />
             </section>
-
-            <section className="panel">
-              <LogPanel logs={logs} />
-            </section>
           </section>
         </div>
       </div>
+
+      {isLogOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setIsLogOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="flex h-4/5 w-11/12 max-w-4xl flex-col rounded-lg border border-white/10 bg-[#12161b] shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-zinc-100">Log da máquina</p>
+                <p className="text-xs text-zinc-500">Eventos em tempo real</p>
+              </div>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setIsLogOpen(false)}
+                title="Fechar log"
+                aria-label="Fechar log"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <LogPanel logs={logs} isModal={true} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

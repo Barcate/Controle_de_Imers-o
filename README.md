@@ -17,14 +17,15 @@ from printrun.printcore import printcore
 from printrun import gcoder
 ```
 
-No Linux, o comando `npm run setup:python` usa `python3`. No Windows, use `npm run setup:python:win`. Se o Python estiver em outro caminho, configure `PYTHON_PATH` antes de abrir o app.
+No Linux, o comando `npm run setup:python` usa `python3`. No Windows, use `npm run setup:python:win`, que instala as libs Python no usuario atual sem precisar abrir o terminal como administrador. Se o Python estiver em outro caminho, configure `PYTHON_PATH` antes de abrir o app.
 
 ## Como gerar instalador Windows
 
 ```bash
-npm run build
 npm run dist:win
 ```
+
+Esse comando tambem empacota a ponte Python `printcore_bridge.exe` com `Printrun`/`pyserial` usando PyInstaller. Assim, no Windows do cliente, o instalador final nao deve depender de Python ou Printrun instalados manualmente.
 
 ## Como gerar instalador Linux
 
@@ -126,11 +127,13 @@ para cada repeticao da rotina completa:
       aguardar em cima usando o tempo daquele ponto
 ```
 
+O comando de home `G28` e opcional no app. Por padrao fica desligado para testes com placa solta; quando ativado, ele entra depois de `G90` e antes de subir para a altura segura.
+
 Os comentarios do G-code indicam o inicio da rotina, a repeticao atual da rotina completa, o ponto atual, os tempos configurados naquela posicao e a repeticao individual do ponto.
 
 ## Comunicacao com a maquina
 
-O Electron nao acessa Python pelo React diretamente. A interface chama o `preload.ts`, o processo principal abre a ponte `electron/python/printcore_bridge.py`, e essa ponte usa:
+O Electron nao acessa Python pelo React diretamente. A interface chama o `preload.cts`, o processo principal abre a ponte `electron/python/printcore_bridge.py`, e essa ponte usa:
 
 - `serial.tools.list_ports` para listar portas.
 - `printcore(porta, baudrate)` para conectar.
