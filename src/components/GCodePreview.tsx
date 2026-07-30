@@ -6,12 +6,12 @@ export function GCodePreview({ gcode }: GCodePreviewProps) {
   const lineCount = gcode.trim() ? gcode.trim().split(/\r?\n/).length : 0;
 
   return (
-    <div className="console-window">
-      <div className="console-titlebar">
+    <div className="console-window flex h-full flex-col">
+      <div className="console-titlebar shrink-0">
         <span>Preview do G-code</span>
         <span>{lineCount} linhas</span>
       </div>
-      <pre className="console-body h-[360px] text-emerald-100">{gcode || "; Gere o G-code para visualizar aqui."}</pre>
+      <pre className="console-body min-h-0 flex-1">{gcode || "; Arquivo gerado pelo Controle de Imersão..."}</pre>
     </div>
   );
 }

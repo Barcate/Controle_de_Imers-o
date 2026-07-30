@@ -9,6 +9,11 @@ type SerialLogEntry = {
   timestamp: string;
 };
 
+type UpdateInfo = {
+  version: string;
+  url: string;
+};
+
 contextBridge.exposeInMainWorld("electronApi", {
   listSerialPorts: () => ipcRenderer.invoke("serial:list-ports"),
   connectSerialPort: (path: string, baudRate: BaudRate) => ipcRenderer.invoke("serial:connect", { path, baudRate }),
@@ -19,5 +24,11 @@ contextBridge.exposeInMainWorld("electronApi", {
     const listener = (_event: Electron.IpcRendererEvent, entry: SerialLogEntry) => callback(entry);
     ipcRenderer.on("serial:log", listener);
     return () => ipcRenderer.removeListener("serial:log", listener);
-  }
+  },
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, info: UpdateInfo) => callback(info);
+    ipcRenderer.on("app:update-available", listener);
+    return () => ipcRenderer.removeListener("app:update-available", listener);
+  },
+  openLatestRelease: () => ipcRenderer.invoke("app:open-latest-release")
 });

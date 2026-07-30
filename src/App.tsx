@@ -1,14 +1,17 @@
-import { Activity, Cpu, Download, FileCode2, Gauge, MapPin, Repeat2, ShieldCheck, Signal, Terminal, X, TimerReset } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { Field, ToggleField } from "./components/Field";
+import { Cable, CircleStop, Download, FileCode2, List, Send, Signal, TerminalSquare, Unplug, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Field } from "./components/Field";
 import { GCodePreview } from "./components/GCodePreview";
-import { LogPanel } from "./components/LogPanel";
 import { PointsTable } from "./components/PointsTable";
 import { SerialPanel } from "./components/SerialPanel";
 import { defaultConfig } from "./lib/defaultConfig";
 import { generateGCode } from "./lib/gcode";
 import { validateConfig } from "./lib/validation";
-import type { BaudRate, MachineConfig, SerialLogEntry, SerialPortInfo } from "./types/machine";
+import type { BaudRate, MachineConfig, SerialLogEntry, SerialPortInfo, UpdateInfo } from "./types/machine";
+
+const DOCK_MIN_HEIGHT = 180;
+const DOCK_MAX_HEIGHT = 520;
+const DOCK_DEFAULT_HEIGHT = 300;
 
 const numberValue = (value: string) => {
   const parsed = Number(value);
@@ -22,6 +25,8 @@ const logEntry = (level: SerialLogEntry["level"], message: string): SerialLogEnt
   timestamp: new Date().toLocaleTimeString("pt-BR")
 });
 
+type DockTab = "serial" | "gcode";
+
 function App() {
   const [config, setConfig] = useState<MachineConfig>(defaultConfig);
   const [gcode, setGcode] = useState("");
@@ -29,13 +34,27 @@ function App() {
   const [selectedPort, setSelectedPort] = useState("");
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState<SerialLogEntry[]>([]);
-  const [isLogOpen, setIsLogOpen] = useState(false);
-  const errors = useMemo(() => validateConfig(config), [config]);
-  const totalPointCycles = useMemo(
-    () => config.points.reduce((total, point) => total + point.repetitions, 0) * config.routineRepetitions,
-    [config.points, config.routineRepetitions]
+  const [manualCommand, setManualCommand] = useState("");
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [activeTab, setActiveTab] = useState<"operation" | "setup">("operation");
+  const [dockTab, setDockTab] = useState<DockTab>("serial");
+  const [dockHeight, setDockHeight] = useState(DOCK_DEFAULT_HEIGHT);
+  const isResizingDock = useRef(false);
+  const [safeZInput, setSafeZInput] = useState(String(defaultConfig.safeZ));
+  const [downZInput, setDownZInput] = useState(String(defaultConfig.downZ));
+  const parsedSafeZ = Number(safeZInput);
+  const parsedDownZ = Number(downZInput);
+  const effectiveConfig = useMemo(
+    () => ({
+      ...config,
+      safeZ: parsedSafeZ,
+      downZ: parsedDownZ
+    }),
+    [config, parsedSafeZ, parsedDownZ]
   );
-  const routeMoves = config.points.length * config.routineRepetitions;
+  const errors = useMemo(() => validateConfig(effectiveConfig), [effectiveConfig]);
+  const safeZInvalid = !Number.isFinite(parsedSafeZ) || parsedSafeZ < 45 || parsedSafeZ > 195 || parsedSafeZ <= parsedDownZ;
+  const downZInvalid = !Number.isFinite(parsedDownZ) || parsedDownZ < 45 || parsedDownZ > 195 || parsedSafeZ <= parsedDownZ;
   const gcodeLineCount = gcode.trim() ? gcode.trim().split(/\r?\n/).length : 0;
 
   const addLog = (level: SerialLogEntry["level"], message: string) => {
@@ -51,27 +70,70 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isLogOpen) {
-        setIsLogOpen(false);
-      }
+    const unsubscribe = window.electronApi?.onUpdateAvailable((info) => {
+      setUpdateInfo(info);
+    });
+
+    return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isResizingDock.current) return;
+      const nextHeight = window.innerHeight - event.clientY;
+      setDockHeight(Math.min(DOCK_MAX_HEIGHT, Math.max(DOCK_MIN_HEIGHT, nextHeight)));
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isLogOpen]);
+    const stopResizing = () => {
+      isResizingDock.current = false;
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResizing);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, []);
+
+  const startDockResize = () => {
+    isResizingDock.current = true;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  };
 
   const updateConfig = (patch: Partial<MachineConfig>) => {
-    setConfig((current) => ({ ...current, ...patch }));
+    setConfig((current) => ({
+      ...current,
+      ...patch
+    }));
+  };
+
+  const canGenerate = errors.length === 0;
+  const canSendRoutine = connected && canGenerate && gcode.trim().length > 0;
+
+  const goToTab = (tab: "operation" | "setup") => {
+    setActiveTab(tab);
+  };
+
+  const handleSetParameters = () => {
+    if (safeZInvalid || downZInvalid) {
+      addLog("error", "Corrija os parâmetros antes de aplicar.");
+      return;
+    }
+
+    addLog("info", "Parâmetros aplicados.");
   };
 
   const handleGenerate = () => {
-    if (errors.length > 0) {
+    if (!canGenerate) {
       addLog("error", errors[0]);
       return;
     }
 
-    setGcode(generateGCode(config));
+    setGcode(generateGCode(effectiveConfig));
     addLog("info", "G-code gerado.");
   };
 
@@ -145,6 +207,11 @@ function App() {
       return;
     }
 
+    if (errors.length > 0) {
+      addLog("error", "Corrija os erros de configuracao antes de enviar G-code.");
+      return;
+    }
+
     if (!gcode.trim()) {
       addLog("error", "Nao e possivel enviar G-code vazio.");
       return;
@@ -170,212 +237,213 @@ function App() {
     }
   };
 
+  const handleSendManualCommand = async () => {
+    const trimmedCommand = manualCommand.trim();
+
+    if (!trimmedCommand) {
+      addLog("error", "Insira um comando G-code antes de enviar.");
+      return;
+    }
+
+    if (!window.electronApi) {
+      addLog("error", "API serial indisponivel fora do Electron.");
+      return;
+    }
+
+    if (!connected) {
+      addLog("error", "Conecte-se a uma porta serial antes de enviar comandos.");
+      return;
+    }
+
+    try {
+      await window.electronApi.sendGCode(trimmedCommand);
+      addLog("sent", `> ${trimmedCommand}`);
+      setManualCommand("");
+    } catch (error) {
+      addLog("error", error instanceof Error ? error.message : "Falha ao enviar comando manual.");
+    }
+  };
+
   return (
     <main className="app-shell">
       <div className="page-frame">
         <header className="topbar">
-          <div className="flex items-center gap-3">
-            <span className="brand-mark">CI</span>
-            <div>
-              <p className="topbar-title">Controle de Imersao</p>
-              <p className="topbar-subtitle">Painel local de rotina e envio G-code</p>
-            </div>
-          </div>
-          <div className="hidden items-center gap-2 sm:flex">
-            <button
-              className="icon-button"
-              type="button"
-              onClick={() => setIsLogOpen(true)}
-              title="Abrir log"
-              aria-label="Abrir log"
-            >
-              <Terminal size={17} />
-            </button>
-            <span className={`status-pill ${connected ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 bg-white/[0.035] text-zinc-400"}`}>
-              <span className={`status-dot ${connected ? "bg-emerald-300" : "bg-zinc-600"}`} />
+          <p className="topbar-title">CONSOLE DE IMERSÃO</p>
+          <div className="topbar-actions">
+            {updateInfo ? (
+              <button
+                type="button"
+                className="update-pill"
+                onClick={() => window.electronApi?.openLatestRelease()}
+                title="Abrir página de download da nova versão"
+              >
+                <Download size={14} />
+                Atualização v{updateInfo.version} disponível
+              </button>
+            ) : null}
+            <span className="status-pill">
+              <span className={`status-dot ${connected ? "bg-[var(--navy)]" : "bg-slate-300"}`} />
               {connected ? "Online" : "Offline"}
             </span>
             <span className="unit-pill">
-              <Signal size={14} />
+              <Signal size={18} className="text-slate-500" />
               {config.baudRate}
             </span>
           </div>
         </header>
 
-        <section className="command-hero">
-          <div className="hero-grid">
-            <div className="hero-main">
-              <p className="overline">Console de operacao</p>
-              <h1 className="hero-title">Rotina de imersao por pontos</h1>
-              <p className="hero-copy">
-                Sequencia X/Y com ciclos de descida, espera, subida e repeticao completa da rotina.
-              </p>
-              <div className="flow-strip">
-                <div className="flow-step">
-                  <MapPin size={18} />
-                  <span>X/Y</span>
-                </div>
-                <div className="flow-step">
-                  <Gauge size={18} />
-                  <span>Z mm/s</span>
-                </div>
-                <div className="flow-step">
-                  <TimerReset size={18} />
-                  <span>Espera</span>
-                </div>
-                <div className="flow-step">
-                  <Repeat2 size={18} />
-                  <span>Repeticao</span>
-                </div>
-              </div>
-            </div>
+        <div className="tab-panel">
+          <button type="button" className={`tab-button ${activeTab === "operation" ? "active" : ""}`} onClick={() => goToTab("operation")}>
+            Operação
+          </button>
+          <button type="button" className={`tab-button ${activeTab === "setup" ? "active" : ""}`} onClick={() => goToTab("setup")}>
+            Setup
+          </button>
+        </div>
 
-            <div className="hero-side">
-              <div className="telemetry-cell">
-                <p className="telemetry-label">
-                  <MapPin size={14} />
-                  Pontos
-                </p>
-                <p className="telemetry-value">{config.points.length}</p>
-                <p className="telemetry-note">{routeMoves} movimentos X/Y</p>
+        <section className="page-content">
+          {activeTab === "operation" ? (
+            <>
+              <div className="metrics-row">
+                <div className="metric-card">
+                  <p className="metric-card-title">G-CODE</p>
+                  <p className="metric-card-value">{gcodeLineCount}</p>
+                  <p className="metric-card-note">linhas geradas</p>
+                </div>
+                <div className="metric-card">
+                  <p className="metric-card-title">SERIAL</p>
+                  <p className="metric-card-value">{connected ? "ON" : "OFF"}</p>
+                  <p className="metric-card-note">{selectedPort || "sem porta"}</p>
+                </div>
               </div>
-              <div className="telemetry-cell">
-                <p className="telemetry-label">
-                  <Repeat2 size={14} />
-                  Ciclos Z
-                </p>
-                <p className="telemetry-value">{totalPointCycles}</p>
-                <p className="telemetry-note">{config.routineRepetitions} rotina(s)</p>
-              </div>
-              <div className="telemetry-cell">
-                <p className="telemetry-label">
-                  <FileCode2 size={14} />
-                  G-code
-                </p>
-                <p className="telemetry-value">{gcodeLineCount}</p>
-                <p className="telemetry-note">linhas geradas</p>
-              </div>
-              <div className="telemetry-cell">
-                <p className="telemetry-label">
-                  <Activity size={14} />
-                  Serial
-                </p>
-                <p className="telemetry-value">{connected ? "ON" : "OFF"}</p>
-                <p className="telemetry-note">{selectedPort || "sem porta"}</p>
-              </div>
-            </div>
-          </div>
+
+              <section className="panel panel-plain">
+                <PointsTable points={config.points} onChange={(points) => updateConfig({ points })} />
+              </section>
+            </>
+          ) : (
+            <>
+              <section className="panel panel-strong">
+                <div className="section-titlebar">
+                  <h2 className="section-heading">Parâmetros gerais</h2>
+                </div>
+                <div className="form-grid">
+                  <Field
+                    label="Altura segura Z"
+                    type="number"
+                    value={safeZInput}
+                    className={safeZInvalid ? "field-shell invalid" : ""}
+                    hint={safeZInvalid ? "Valor Z seguro precisa estar entre 45 e 195 e ser maior que Z de descida." : ""
+                    }
+                    onChange={(event) => setSafeZInput(event.target.value)}
+                  />
+                  <Field
+                    label="Altura de descida Z (mm)"
+                    type="number"
+                    value={downZInput}
+                    className={downZInvalid ? "field-shell invalid" : ""}
+                    hint={downZInvalid ? "Valor Z de descida precisa estar entre 45 e 195 e menor que Z seguro." : ""
+                    }
+                    onChange={(event) => setDownZInput(event.target.value)}
+                  />
+                  <Field label="Repetições da rotina completa" min={1} step={1} type="number" value={config.routineRepetitions} onChange={(event) => updateConfig({ routineRepetitions: numberValue(event.target.value) })} />
+                  <Field label="Velocidade X" type="number" value={config.xyFeedRate} onChange={(event) => updateConfig({ xyFeedRate: numberValue(event.target.value) })} />
+                </div>
+                <div className="panel-actions">
+                  <button className="btn-primary" type="button" onClick={handleSetParameters} disabled={safeZInvalid || downZInvalid}>
+                    Setar parâmetros
+                  </button>
+                </div>
+                {errors.length > 0 ? (
+                  <div className="alert-panel mt-4">
+                    {errors.map((error) => (
+                      <p key={error}>{error}</p>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            </>
+          )}
         </section>
+      </div>
 
-        <div className="layout-grid">
-          <section className="space-y-5">
-            <section className="panel panel-strong">
-              <div className="section-titlebar">
-                <div>
-                  <span className="section-kicker">Setup</span>
-                  <h2 className="section-heading">Parametros gerais</h2>
-                </div>
-                <span className="unit-pill">
-                  <ShieldCheck size={14} />
-                  Z seguro
-                </span>
-              </div>
-              <div className="form-grid">
-                <Field label="Altura segura Z" type="number" value={config.safeZ} onChange={(event) => updateConfig({ safeZ: numberValue(event.target.value) })} />
-                <Field label="Altura de descida Z (mm)" type="number" value={config.downZ} onChange={(event) => updateConfig({ downZ: numberValue(event.target.value) })} />
-                <Field label="Repeticoes da rotina completa" min={1} step={1} type="number" value={config.routineRepetitions} onChange={(event) => updateConfig({ routineRepetitions: numberValue(event.target.value) })} />
-                <Field label="Velocidade X/Y" type="number" value={config.xyFeedRate} onChange={(event) => updateConfig({ xyFeedRate: numberValue(event.target.value) })} />
-                <ToggleField label="Fazer home antes da rotina" hint="G28" checked={config.homeBeforeRoutine} onChange={(event) => updateConfig({ homeBeforeRoutine: event.target.checked })} />
-              </div>
+      <div className="dock-shell">
+        <div className="dock-shell-inner">
+          <button type="button" className="dock-resize-handle" onMouseDown={startDockResize} aria-label="Redimensionar painel" />
 
-              {errors.length > 0 ? (
-                <div className="alert-panel mt-4">
-                  {errors.map((error) => (
-                    <p key={error}>{error}</p>
-                  ))}
-                </div>
-              ) : null}
-            </section>
+          <div className="dock-tabs">
+            <button type="button" className={`dock-tab ${dockTab === "serial" ? "active" : ""}`} onClick={() => setDockTab("serial")}>
+              <Cable size={14} />
+              Conexão Serial
+              {dockTab === "serial" ? <X size={12} className="dock-tab-close" /> : null}
+            </button>
+            <button type="button" className={`dock-tab ${dockTab === "gcode" ? "active" : ""}`} onClick={() => setDockTab("gcode")}>
+              <FileCode2 size={14} />
+              Gerar G-Code
+              {dockTab === "gcode" ? <X size={12} className="dock-tab-close" /> : null}
+            </button>
+          </div>
 
-            <section className="panel">
-              <PointsTable points={config.points} onChange={(points) => updateConfig({ points })} />
-            </section>
-          </section>
-
-          <section className="space-y-5">
-            <section className="panel">
+          <div className="dock-body" style={{ height: dockHeight }}>
+            {dockTab === "serial" ? (
               <SerialPanel
                 baudRate={config.baudRate}
                 connected={connected}
+                logs={logs}
+                manualCommand={manualCommand}
                 ports={ports}
                 selectedPort={selectedPort}
                 onBaudRateChange={(baudRate: BaudRate) => updateConfig({ baudRate })}
-                onConnectToggle={handleConnectToggle}
-                onEmergencyStop={handleEmergencyStop}
-                onListPorts={handleListPorts}
+                onManualCommandChange={setManualCommand}
                 onSelectedPortChange={setSelectedPort}
-                onSend={handleSend}
+                onSendManualCommand={handleSendManualCommand}
               />
-            </section>
-
-            <section className="panel space-y-4">
-              <div className="section-titlebar">
-                <div>
-                  <span className="section-kicker">Arquivo</span>
-                  <h2 className="section-heading">Geracao</h2>
+            ) : (
+              <div className="dock-scroll-area">
+                <div className="action-grid mb-3 shrink-0">
+                  <button className="btn-primary" type="button" onClick={handleGenerate} disabled={!canGenerate}>
+                    <FileCode2 size={17} />
+                    Gerar G-code
+                  </button>
+                  <button className="btn-secondary" type="button" onClick={handleSave} disabled={!gcode.trim()}>
+                    <Download size={17} />
+                    Salvar arquivo
+                  </button>
                 </div>
-                <span className="unit-pill">
-                  <Cpu size={14} />
-                  {gcodeLineCount} linhas
-                </span>
+                <div className="min-h-0 flex-1">
+                  <GCodePreview gcode={gcode} />
+                </div>
               </div>
-              <div className="action-grid">
-                <button className="btn-primary" type="button" onClick={handleGenerate}>
-                  <FileCode2 size={17} />
-                  Gerar G-code
-                </button>
-                <button className="btn-secondary" type="button" onClick={handleSave}>
-                  <Download size={17} />
-                  Salvar arquivo
-                </button>
-              </div>
-              <GCodePreview gcode={gcode} />
-            </section>
-          </section>
-        </div>
-      </div>
+            )}
 
-      {isLogOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={() => setIsLogOpen(false)}
-          role="presentation"
-        >
-          <div
-            className="flex h-4/5 w-11/12 max-w-4xl flex-col rounded-lg border border-white/10 bg-[#12161b] shadow-2xl shadow-black/50"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-zinc-100">Log da máquina</p>
-                <p className="text-xs text-zinc-500">Eventos em tempo real</p>
+            <div className="toolbar-footer">
+              <div className="toolbar-footer-actions">
+                <button className="btn-light" type="button" onClick={handleListPorts}>
+                  <List size={16} className="text-slate-500" />
+                  Listar portas
+                </button>
+                <button className="btn-light" type="button" onClick={handleConnectToggle}>
+                  {connected ? <Unplug size={16} className="text-slate-500" /> : <Cable size={16} className="text-slate-500" />}
+                  {connected ? "Desconectar" : "Conectar"}
+                </button>
+                <button className="btn-danger h-9 text-[13px]" type="button" onClick={handleEmergencyStop}>
+                  <CircleStop size={16} />
+                  Parar emergência
+                </button>
+                <button className="btn-light" type="button" onClick={handleSendManualCommand}>
+                  <TerminalSquare size={16} className="text-slate-500" />
+                  Enviar comando
+                </button>
+                <button className="btn-light" type="button" onClick={handleSend} disabled={!canSendRoutine}>
+                  <Send size={16} className="text-slate-500" />
+                  Enviar rotina
+                </button>
               </div>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={() => setIsLogOpen(false)}
-                title="Fechar log"
-                aria-label="Fechar log"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <LogPanel logs={logs} isModal={true} />
+              <span className="toolbar-credit">Desenvolvido por: Matheus Barbosa e Chico Simões</span>
             </div>
           </div>
         </div>
-      ) : null}
+      </div>
     </main>
   );
 }

@@ -23,12 +23,10 @@ export function generateGCode(config: MachineConfig): string {
     "; Arquivo gerado pelo Controle de Imersao",
     "; ===== INICIO DA ROTINA =====",
     "G21 ; unidades em milimetros",
-    "G90 ; coordenadas absolutas"
+    "G90 ; coordenadas absolutas",
+    "G28 XYZ ; home",
+    "M400"
   ];
-
-  if (config.homeBeforeRoutine) {
-    lines.push("G28 ; home");
-  }
 
   lines.push(`G1 Z${formatNumber(config.safeZ)} F${initialUpFeedRate}`, "M400");
 
@@ -43,7 +41,7 @@ export function generateGCode(config: MachineConfig): string {
       lines.push(
         `; Velocidades/tempos do ponto: descida ${formatNumber(point.downSpeedMmPerSecond)} mm/s, embaixo ${formatNumber(point.holdDownSeconds)}s, subida ${formatNumber(point.upSpeedMmPerSecond)} mm/s, em cima ${formatNumber(point.holdUpSeconds)}s`
       );
-      lines.push(`G1 X${formatNumber(point.x)} Y${formatNumber(point.y)} F${formatNumber(config.xyFeedRate)}`);
+      lines.push(`G1 X${formatNumber(point.x)} F${formatNumber(config.xyFeedRate)}`);
       lines.push("M400");
 
       for (let pointRepeat = 1; pointRepeat <= point.repetitions; pointRepeat += 1) {
@@ -60,6 +58,8 @@ export function generateGCode(config: MachineConfig): string {
 
   lines.push("; ===== FIM DA ROTINA =====");
   lines.push(`G1 Z${formatNumber(config.safeZ)} F${initialUpFeedRate}`);
+  lines.push("M400");
+  lines.push("G28 XYZ ; home");
   lines.push("M400");
   lines.push("M84");
 

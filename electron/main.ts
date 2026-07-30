@@ -1,10 +1,18 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { chmodSync, existsSync } from "node:fs";
+import https from "node:https";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+
+const UPDATE_REPO_OWNER = "Barcate";
+const UPDATE_REPO_NAME = "Controle_de_Imers-o";
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+
+type UpdateInfo = { version: string; url: string };
+type GitHubRelease = { tag_name: string; html_url: string; draft: boolean; prerelease: boolean };
 
 type BaudRate = 115200 | 250000;
 type SerialLogLevel = "info" | "sent" | "received" | "error";
@@ -31,6 +39,90 @@ let mainWindow: BrowserWindow | null = null;
 let bridge: ChildProcessWithoutNullStreams | null = null;
 let bridgeReady: Promise<void> | null = null;
 const pendingRequests = new Map<string, PendingRequest>();
+let latestRelease: UpdateInfo | null = null;
+let notifiedVersion: string | null = null;
+
+function normalizeVersion(version: string): string {
+  return version.trim().replace(/^v/i, "");
+}
+
+function compareVersions(a: string, b: string): number {
+  const partsA = normalizeVersion(a).split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const partsB = normalizeVersion(b).split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const length = Math.max(partsA.length, partsB.length);
+
+  for (let i = 0; i < length; i += 1) {
+    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+
+  return 0;
+}
+
+function fetchLatestRelease(): Promise<GitHubRelease | null> {
+  return new Promise((resolve) => {
+    const request = https.get(
+      `https://api.github.com/repos/${UPDATE_REPO_OWNER}/${UPDATE_REPO_NAME}/releases/latest`,
+      {
+        headers: {
+          "User-Agent": "imersao-machine-controller-update-checker",
+          Accept: "application/vnd.github+json"
+        },
+        timeout: 10_000
+      },
+      (response) => {
+        if (response.statusCode !== 200) {
+          response.resume();
+          resolve(null);
+          return;
+        }
+
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk: string) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          try {
+            resolve(JSON.parse(body) as GitHubRelease);
+          } catch {
+            resolve(null);
+          }
+        });
+      }
+    );
+
+    request.on("timeout", () => request.destroy());
+    request.on("error", () => resolve(null));
+  });
+}
+
+async function checkForUpdates() {
+  const release = await fetchLatestRelease();
+  if (!release || release.draft || release.prerelease) {
+    return;
+  }
+
+  const remoteVersion = normalizeVersion(release.tag_name);
+  const localVersion = app.getVersion();
+
+  if (compareVersions(remoteVersion, localVersion) > 0 && remoteVersion !== notifiedVersion) {
+    notifiedVersion = remoteVersion;
+    latestRelease = { version: remoteVersion, url: release.html_url };
+    mainWindow?.webContents.send("app:update-available", latestRelease);
+  }
+}
+
+function scheduleUpdateChecks() {
+  if (!app.isPackaged) {
+    return;
+  }
+
+  setTimeout(checkForUpdates, 10_000);
+  setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
+}
 
 function createLog(level: SerialLogLevel, message: string): SerialLogEntry {
   return {
@@ -232,7 +324,16 @@ ipcMain.handle("serial:send-gcode", async (_event, gcode: string) => sendBridgeC
 
 ipcMain.handle("serial:emergency-stop", async () => sendBridgeCommand("emergency_stop"));
 
-app.whenReady().then(createWindow);
+ipcMain.handle("app:open-latest-release", async () => {
+  if (latestRelease) {
+    await shell.openExternal(latestRelease.url);
+  }
+});
+
+app.whenReady().then(() => {
+  createWindow();
+  scheduleUpdateChecks();
+});
 
 app.on("window-all-closed", () => {
   bridge?.kill();

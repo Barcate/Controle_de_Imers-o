@@ -4,7 +4,6 @@ export type MachinePoint = {
   id: string;
   name: string;
   x: number;
-  y: number;
   repetitions: number;
   downSpeedMmPerSecond: number;
   holdDownSeconds: number;
@@ -17,7 +16,6 @@ export type MachineConfig = {
   downZ: number;
   xyFeedRate: number;
   routineRepetitions: number;
-  homeBeforeRoutine: boolean;
   baudRate: BaudRate;
   points: MachinePoint[];
 };
@@ -40,6 +38,11 @@ export type SerialLogEntry = {
   timestamp: string;
 };
 
+export type UpdateInfo = {
+  version: string;
+  url: string;
+};
+
 export type ElectronApi = {
   listSerialPorts: () => Promise<SerialPortInfo[]>;
   connectSerialPort: (path: string, baudRate: BaudRate) => Promise<void>;
@@ -47,4 +50,6 @@ export type ElectronApi = {
   sendGCode: (gcode: string) => Promise<void>;
   emergencyStop: () => Promise<void>;
   onSerialLog: (callback: (entry: SerialLogEntry) => void) => () => void;
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
+  openLatestRelease: () => Promise<void>;
 };

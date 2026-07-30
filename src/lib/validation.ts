@@ -9,10 +9,8 @@ function validatePoint(point: MachinePoint, index: number): string[] {
 
   if (!isFiniteNumber(point.x)) {
     errors.push(`${label}: X precisa ser um numero valido.`);
-  }
-
-  if (!isFiniteNumber(point.y)) {
-    errors.push(`${label}: Y precisa ser um numero valido.`);
+  } else if (point.x < 0 || point.x > 190) {
+    errors.push(`${label}: X precisa estar entre 0 e 190.`);
   }
 
   if (!isIntegerAtLeastOne(point.repetitions)) {
@@ -38,8 +36,19 @@ function validatePoint(point: MachinePoint, index: number): string[] {
 export function validateConfig(config: MachineConfig): string[] {
   const errors: string[] = [];
 
-  if (!isFiniteNumber(config.safeZ) || !isFiniteNumber(config.downZ) || config.safeZ <= config.downZ) {
-    errors.push("Altura segura precisa ser maior que altura de descida.");
+  if (!isFiniteNumber(config.safeZ) || !isFiniteNumber(config.downZ)) {
+    errors.push("Altura segura e altura de descida precisam ser numeros validos.");
+  } else {
+    if (config.safeZ <= config.downZ) {
+      errors.push("Altura segura precisa ser maior que altura de descida.");
+    }
+    if (config.safeZ < 45 || config.safeZ > 195) {
+      errors.push("Altura segura Z precisa estar entre 45 e 195.");
+    }
+  }
+
+  if (config.downZ < 45 || config.downZ > 195) {
+    errors.push("Altura de descida Z precisa estar entre 45 e 195.");
   }
 
   if (!isFiniteNumber(config.xyFeedRate) || config.xyFeedRate <= 0) {

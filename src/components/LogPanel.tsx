@@ -35,13 +35,13 @@ export function LogPanel({ logs, isModal = false }: LogPanelProps) {
   }
 
   return (
-    <section className="space-y-3">
-      <div className="section-titlebar">
+    <section className="space-y-2">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2">
         <div>
-          <span className="section-kicker">Eventos</span>
-          <h2 className="section-heading">Log da maquina</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-500">Eventos</p>
+          <p className="text-sm font-medium text-slate-700">Monitor serial</p>
         </div>
-        <span className="unit-pill">{logs.length}</span>
+        {logs.length > 0 ? <span className="unit-pill">{logs.length}</span> : null}
       </div>
       <div className="console-window">
         <div className="console-titlebar">
@@ -49,12 +49,12 @@ export function LogPanel({ logs, isModal = false }: LogPanelProps) {
           <span>tempo real</span>
         </div>
         <div className="console-body h-64 space-y-1">
-        {logs.length === 0 ? <p className="text-zinc-500">Nenhum evento ainda.</p> : null}
-        {logs.map((entry) => (
-          <div key={entry.id} className={`rounded-md border px-2 py-1 ${levelClass[entry.level]}`}>
-            <span className="text-zinc-500">[{entry.timestamp}]</span> {entry.message}
-          </div>
-        ))}
+          {logs.length === 0 ? <p className="text-zinc-500">Nenhum evento ainda.</p> : null}
+          {logs.map((entry) => (
+            <div key={entry.id} className={`rounded-md border px-2 py-1 ${levelClass[entry.level]}`}>
+              <span className="text-zinc-500">[{entry.timestamp}]</span> {entry.message}
+            </div>
+          ))}
         </div>
       </div>
     </section>
