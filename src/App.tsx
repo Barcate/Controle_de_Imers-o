@@ -7,7 +7,7 @@ import { SerialPanel } from "./components/SerialPanel";
 import { defaultConfig } from "./lib/defaultConfig";
 import { generateGCode } from "./lib/gcode";
 import { validateConfig } from "./lib/validation";
-import type { BaudRate, MachineConfig, SerialLogEntry, SerialPortInfo, UpdateInfo } from "./types/machine";
+import type { BaudRate, MachineConfig, SerialLogEntry, SerialPortInfo } from "./types/machine";
 
 const DOCK_MIN_HEIGHT = 180;
 const DOCK_MAX_HEIGHT = 520;
@@ -35,7 +35,6 @@ function App() {
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState<SerialLogEntry[]>([]);
   const [manualCommand, setManualCommand] = useState("");
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [activeTab, setActiveTab] = useState<"operation" | "setup">("operation");
   const [dockTab, setDockTab] = useState<DockTab>("serial");
   const [dockHeight, setDockHeight] = useState(DOCK_DEFAULT_HEIGHT);
@@ -85,13 +84,6 @@ function App() {
     return () => unsubscribe?.();
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = window.electronApi?.onUpdateAvailable((info) => {
-      setUpdateInfo(info);
-    });
-
-    return () => unsubscribe?.();
-  }, []);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -138,7 +130,7 @@ function App() {
   };
 
   const canGenerate = errors.length === 0;
-  const canSendRoutine = connected && canGenerate && gcode.trim().length > 0;
+  const canSendRoutine = connected && canGenerate;
 
   const goToTab = (tab: "operation" | "setup") => {
     setActiveTab(tab);
@@ -240,7 +232,7 @@ function App() {
     }
 
     if (!gcode.trim()) {
-      addLog("error", "Nao e possivel enviar G-code vazio.");
+      addLog("error", "Nao e possivel iniciar: gere o G-code antes de enviar a rotina.");
       return;
     }
 
@@ -297,17 +289,6 @@ function App() {
         <div className="topbar-inner">
           <p className="topbar-title">CONSOLE DE IMERSÃO</p>
           <div className="topbar-actions">
-            {updateInfo ? (
-              <button
-                type="button"
-                className="update-pill"
-                onClick={() => window.electronApi?.openLatestRelease()}
-                title="Abrir página de download da nova versão"
-              >
-                <Download size={14} />
-                Atualização v{updateInfo.version} disponível
-              </button>
-            ) : null}
             <span className="status-pill">
               <span className={`status-dot ${connected ? "bg-[var(--navy)]" : "bg-slate-300"}`} />
               {connected ? "Online" : "Offline"}
@@ -470,7 +451,7 @@ function App() {
                   Enviar rotina
                 </button>
               </div>
-              <span className="toolbar-credit">Desenvolvido por: Matheus Barbosa e Chico Simões</span>
+              <span className="toolbar-credit">Desenvolvido por: Matheus Barbosa e Francisco Simões</span>
             </div>
           </div>
         </div>

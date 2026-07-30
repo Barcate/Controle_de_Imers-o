@@ -60,7 +60,7 @@ export function PointsTable({ points, onChange }: PointsTableProps) {
                   </label>
 
                   <label className="field-shell">
-                    <span className="field-label">X</span>
+                    <span className="field-label">Posição em X</span>
                     <input
                       className={`table-input ${xInvalid ? "invalid" : ""}`}
                       type="number"

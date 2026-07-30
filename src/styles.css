@@ -121,10 +121,6 @@ button {
     @apply inline-flex h-10 items-center gap-2.5 rounded-lg bg-white px-4 text-[17px] font-medium text-slate-700 shadow-sm;
   }
 
-  .update-pill {
-    @apply inline-flex h-10 items-center gap-2 rounded-full bg-amber-50 px-4 text-[13px] font-semibold text-amber-700 shadow-sm transition hover:bg-amber-100;
-  }
-
   /* ---------- Tabs (top-level Operação / Setup) ---------- */
 
   .tab-panel-shell {

@@ -38,11 +38,6 @@ export type SerialLogEntry = {
   timestamp: string;
 };
 
-export type UpdateInfo = {
-  version: string;
-  url: string;
-};
-
 export type ElectronApi = {
   listSerialPorts: () => Promise<SerialPortInfo[]>;
   connectSerialPort: (path: string, baudRate: BaudRate) => Promise<void>;
@@ -50,8 +45,6 @@ export type ElectronApi = {
   sendGCode: (gcode: string) => Promise<void>;
   emergencyStop: () => Promise<void>;
   onSerialLog: (callback: (entry: SerialLogEntry) => void) => () => void;
-  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
-  openLatestRelease: () => Promise<void>;
   loadConfig: () => Promise<MachineConfig | null>;
   saveConfig: (config: MachineConfig) => Promise<void>;
 };
