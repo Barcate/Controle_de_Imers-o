@@ -52,4 +52,6 @@ export type ElectronApi = {
   onSerialLog: (callback: (entry: SerialLogEntry) => void) => () => void;
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
   openLatestRelease: () => Promise<void>;
+  loadConfig: () => Promise<MachineConfig | null>;
+  saveConfig: (config: MachineConfig) => Promise<void>;
 };

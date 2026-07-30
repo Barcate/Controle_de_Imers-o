@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { chmodSync, existsSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import https from "node:https";
 import path from "node:path";
 import readline from "node:readline";
@@ -122,6 +122,23 @@ function scheduleUpdateChecks() {
 
   setTimeout(checkForUpdates, 10_000);
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
+}
+
+function configFilePath() {
+  return path.join(app.getPath("userData"), "machine-config.json");
+}
+
+function loadConfigFromDisk(): unknown {
+  try {
+    const raw = readFileSync(configFilePath(), "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveConfigToDisk(config: unknown) {
+  writeFileSync(configFilePath(), JSON.stringify(config, null, 2), "utf8");
 }
 
 function createLog(level: SerialLogLevel, message: string): SerialLogEntry {
@@ -323,6 +340,10 @@ ipcMain.handle("serial:disconnect", async () => sendBridgeCommand("disconnect"))
 ipcMain.handle("serial:send-gcode", async (_event, gcode: string) => sendBridgeCommand("send_gcode", { gcode }));
 
 ipcMain.handle("serial:emergency-stop", async () => sendBridgeCommand("emergency_stop"));
+
+ipcMain.handle("config:load", async () => loadConfigFromDisk());
+
+ipcMain.handle("config:save", async (_event, config: unknown) => saveConfigToDisk(config));
 
 ipcMain.handle("app:open-latest-release", async () => {
   if (latestRelease) {

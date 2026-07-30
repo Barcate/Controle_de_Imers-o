@@ -30,5 +30,7 @@ contextBridge.exposeInMainWorld("electronApi", {
     ipcRenderer.on("app:update-available", listener);
     return () => ipcRenderer.removeListener("app:update-available", listener);
   },
-  openLatestRelease: () => ipcRenderer.invoke("app:open-latest-release")
+  openLatestRelease: () => ipcRenderer.invoke("app:open-latest-release"),
+  loadConfig: () => ipcRenderer.invoke("config:load"),
+  saveConfig: (config: unknown) => ipcRenderer.invoke("config:save", config)
 });

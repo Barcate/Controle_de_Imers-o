@@ -90,7 +90,11 @@ button {
   /* ---------- Topbar ---------- */
 
   .topbar {
-    @apply flex min-h-[56px] shrink-0 items-center justify-between gap-4 bg-[var(--brand)] px-6 py-2.5;
+    @apply shrink-0 bg-[var(--brand)];
+  }
+
+  .topbar-inner {
+    @apply mx-auto flex min-h-[56px] w-full max-w-[1540px] items-center justify-between gap-4 px-6 py-2.5;
   }
 
   .topbar-title {
@@ -123,8 +127,12 @@ button {
 
   /* ---------- Tabs (top-level Operação / Setup) ---------- */
 
+  .tab-panel-shell {
+    @apply mb-3 shrink-0 bg-[var(--brand)];
+  }
+
   .tab-panel {
-    @apply mb-3 flex shrink-0 items-end gap-1 bg-[var(--brand)] px-5 pb-0 pt-2;
+    @apply mx-auto flex w-full max-w-[1540px] items-end gap-1 px-5 pb-0 pt-2;
   }
 
   .tab-button {

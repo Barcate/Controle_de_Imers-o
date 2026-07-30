@@ -62,6 +62,22 @@ function App() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
+    window.electronApi?.loadConfig().then((loaded) => {
+      if (cancelled || !loaded) return;
+
+      setConfig(loaded);
+      setSafeZInput(String(loaded.safeZ));
+      setDownZInput(String(loaded.downZ));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = window.electronApi?.onSerialLog((entry) => {
       setLogs((current) => [...current.slice(-250), entry]);
     });
@@ -98,6 +114,16 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (errors.length > 0) return;
+
+    const timeoutId = setTimeout(() => {
+      window.electronApi?.saveConfig(effectiveConfig);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [effectiveConfig, errors.length]);
+
   const startDockResize = () => {
     isResizingDock.current = true;
     document.body.style.cursor = "row-resize";
@@ -124,7 +150,8 @@ function App() {
       return;
     }
 
-    addLog("info", "Parâmetros aplicados.");
+    window.electronApi?.saveConfig(effectiveConfig);
+    addLog("info", "Parâmetros aplicados e configuração salva.");
   };
 
   const handleGenerate = () => {
@@ -266,8 +293,8 @@ function App() {
 
   return (
     <main className="app-shell">
-      <div className="page-frame">
-        <header className="topbar">
+      <header className="topbar">
+        <div className="topbar-inner">
           <p className="topbar-title">CONSOLE DE IMERSÃO</p>
           <div className="topbar-actions">
             {updateInfo ? (
@@ -290,8 +317,10 @@ function App() {
               {config.baudRate}
             </span>
           </div>
-        </header>
+        </div>
+      </header>
 
+      <div className="tab-panel-shell">
         <div className="tab-panel">
           <button type="button" className={`tab-button ${activeTab === "operation" ? "active" : ""}`} onClick={() => goToTab("operation")}>
             Operação
@@ -300,7 +329,9 @@ function App() {
             Setup
           </button>
         </div>
+      </div>
 
+      <div className="page-frame">
         <section className="page-content">
           {activeTab === "operation" ? (
             <>
